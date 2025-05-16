@@ -39,7 +39,7 @@ bot.on('polling_error', (error) => {
 });
 
 // Set webhook
-bot.setWebHook('https://suvorov-studio.onrender.com/bot' + botToken) // Replace your-app-name
+bot.setWebHook('https://telegram-tattoo-bot.onrender.com' + botToken) // Replace your-app-name
     .then(() => {
         app.listen(port, () => {
             console.log(`Сервер запущен на порту ${port}`);
