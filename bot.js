@@ -1,3 +1,4 @@
+const dbQueries = require('./db/db.queries');
 const TelegramBot = require('node-telegram-bot-api');
 const express = require('express');
 const bodyParser = require('body-parser');
