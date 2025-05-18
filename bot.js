@@ -7,11 +7,12 @@ const botToken = '8064015461:AAEktPr9S1AOd_EZB4YgS6MBwtdVv08-iEY'; // Замен
 const bot = new TelegramBot(botToken, { polling: false }); // Webhooks
 const app = express();
 const port = process.env.PORT || 3000;
+const host = 'telegram-tattoo-bot.onrender.com'; // Замените на ваш домен
 
 app.use(bodyParser.json());
 
 // Webhook endpoint
-app.post('/bot' + botToken, (req, res) => {
+app.post('/bot', (req, res) => {
     bot.processUpdate(req.body);
     res.sendStatus(200);
 });
@@ -38,15 +39,15 @@ bot.on('message', (msg) => {
 bot.on('polling_error', (error) => {
     console.log(error); // Log the error
 });
+const webhookUrl = `https://${host}/bot`;
+// Запускаем сервер (независимо от установки webhook)
+app.listen(port, () => {
+    console.log(`Сервер запущен на порту ${port}`);
+});
 
-// Set webhook
-bot.setWebHook('https://telegram-tattoo-bot.onrender.com' + botToken) // Replace your-app-name
-    .then(() => {
-        app.listen(port, () => {
-            console.log(`Сервер запущен на порту ${port}`);
-        });
-        console.log('WebHook настроен');
-    })
-    .catch(err => {
-        console.log('Ошибка установки WebHook' + err);
-    });
+// Пытаемся установить webhook (только один раз!)
+bot.setWebHook(webhookUrl).then(() => {
+    console.log('Webhook установлен');
+}).catch((error) => {
+    console.error('Не удалось установить webhook:', error);
+});
