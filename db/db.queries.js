@@ -1,11 +1,12 @@
-const db = require('./db.config');
+// db/db.queries.js
+const db = require('./db'); // Импорт подключения к базе данных
 
 async function createUser(telegramId, username, firstName, lastName, email) {
     const queryText = 'INSERT INTO users (telegram_id, username, first_name, last_name, email) VALUES ($1, $2, $3, $4, $5) RETURNING *';
-    const values = [telegramId, username, firstName, lastName, email];
+    const values = [telegramId, username, username, firstName, lastName, email]; // Исправлено: username,  username, firstName, lastName, email
     try {
         const result = await db.query(queryText, values);
-        return result[0];
+        return result.rows[0]; // Исправлено: возвращаем первую строку
     } catch (error) {
         console.error("Ошибка при создании пользователя:", error);
         throw error;
@@ -17,7 +18,7 @@ async function findUserByTelegramId(telegramId) {
     const values = [telegramId];
     try {
         const result = await db.query(queryText, values);
-        return result[0];
+        return result.rows[0]; // Исправлено: возвращаем первую строку
     } catch (error) {
         console.error("Ошибка при поиске пользователя:", error);
         throw error;
@@ -40,7 +41,7 @@ async function getBotAnswer(question) {
     const values = [question];
     try {
         const result = await db.query(queryText, values);
-        return result[0] ? result[0].answer : null; // Возвращаем ответ или null, если вопрос не найден
+        return result.rows[0] ? result.rows[0].answer : null; // Исправлено: возвращаем answer или null
     } catch (error) {
         console.error("Ошибка при поиске ответа бота:", error);
         throw error;
@@ -62,7 +63,7 @@ async function getBotMessages() {
     const queryText = 'SELECT * FROM bot_messages ORDER BY message_date DESC';
     try {
         const result = await db.query(queryText);
-        return result;
+        return result.rows; // Исправлено: возвращаем все строки
     } catch (error) {
         console.error("Ошибка при получении сообщений бота:", error);
         throw error;
