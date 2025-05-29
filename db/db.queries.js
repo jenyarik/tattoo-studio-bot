@@ -1,80 +1,70 @@
-// db/db.queries.js
-const db = require('./db'); // Импорт подключения к базе данных
+// db.queries.js
+const db = require('./db');
 
-async function createUser(telegramId, username, firstName, lastName, email) {
-    const queryText = 'INSERT INTO users (telegram_id, username, first_name, last_name, email) VALUES ($1, $2, $3, $4, $5) RETURNING *';
-    const values = [telegramId, username, username, firstName, lastName, email]; // Исправлено: username,  username, firstName, lastName, email
+//  Функция создания пользователя
+async function createUser(username, email, passwordHash, phone) {
+    const queryText = 'INSERT INTO users (username, email, password_hash, phone) VALUES ($1, $2, $3, $4) RETURNING *';
+    const values = [username, email, passwordHash, phone];
     try {
         const result = await db.query(queryText, values);
-        return result.rows[0]; // Исправлено: возвращаем первую строку
+        return result.rows[0];
     } catch (error) {
         console.error("Ошибка при создании пользователя:", error);
         throw error;
     }
 }
 
-async function findUserByTelegramId(telegramId) {
-    const queryText = 'SELECT * FROM users WHERE telegram_id = $1';
-    const values = [telegramId];
-    try {
-        const result = await db.query(queryText, values);
-        return result.rows[0]; // Исправлено: возвращаем первую строку
-    } catch (error) {
-        console.error("Ошибка при поиске пользователя:", error);
-        throw error;
-    }
-}
-
-async function saveUserData(userId, key, value) {
-    const queryText = 'INSERT INTO user_data (user_id, data_key, data_value) VALUES ($1, $2, $3)';
-    const values = [userId, key, value];
-    try {
-        await db.query(queryText, values);
-    } catch (error) {
-        console.error("Ошибка при сохранении данных пользователя:", error);
-        throw error;
-    }
-}
-
-async function getBotAnswer(question) {
-    const queryText = 'SELECT answer FROM bot_questions WHERE question = $1';
-    const values = [question];
-    try {
-        const result = await db.query(queryText, values);
-        return result.rows[0] ? result.rows[0].answer : null; // Исправлено: возвращаем answer или null
-    } catch (error) {
-        console.error("Ошибка при поиске ответа бота:", error);
-        throw error;
-    }
-}
-async function saveBotMessage(userId, chatId, messageText) {
-    const queryText = 'INSERT INTO bot_messages (user_id, chat_id, message_text) VALUES ($1, $2, $3)';
-    const values = [userId, chatId, messageText];
-    try {
-        await db.query(queryText, values);
-        console.log('Сообщение бота сохранено в базе данных');
-    } catch (error) {
-        console.error("Ошибка при сохранении сообщения бота:", error);
-        throw error;
-    }
-}
-
-async function getBotMessages() {
-    const queryText = 'SELECT * FROM bot_messages ORDER BY message_date DESC';
+// Функция получения списка услуг
+async function getServices() {
+    const queryText = 'SELECT * FROM services';
     try {
         const result = await db.query(queryText);
-        return result.rows; // Исправлено: возвращаем все строки
+        return result.rows;
     } catch (error) {
-        console.error("Ошибка при получении сообщений бота:", error);
+        console.error("Ошибка при получении списка услуг:", error);
         throw error;
     }
 }
+
+// Функция получения списка мастеров
+async function getMasters() {
+    const queryText = 'SELECT * FROM masters';
+    try {
+        const result = await db.query(queryText);
+        return result.rows;
+    } catch (error) {
+        console.error("Ошибка при получении списка мастеров:", error);
+        throw error;
+    }
+}
+
+//  Функция создания записи на прием
+async function createAppointment(userId, serviceId, masterId, appointmentDate, appointmentTime) {
+    const queryText = 'INSERT INTO appointments (user_id, service_id, master_id, appointment_date, appointment_time) VALUES ($1, $2, $3, $4, $5) RETURNING *';
+    const values = [userId, serviceId, masterId, appointmentDate, appointmentTime];
+    try {
+        const result = await db.query(queryText, values);
+        return result.rows[0];
+    } catch (error) {
+        console.error("Ошибка при создании записи:", error);
+        throw error;
+    }
+}
+
+//  Удаление таблицы bot_messages, если не используется
+//  const queryText = 'SELECT * FROM bot_messages';
+//  try {
+//      const result = await db.query(queryText);
+//      return result.rows;
+//  } catch (error) {
+//      console.error("Ошибка при получении списка мастеров:", error);
+//      throw error;
+//  }
 
 module.exports = {
     createUser,
-    findUserByTelegramId,
-    saveUserData,
-    getBotAnswer,
-    saveBotMessage,
-    getBotMessages
+    getServices,
+    getMasters,
+    createAppointment,
+    // Другие функции
 };
