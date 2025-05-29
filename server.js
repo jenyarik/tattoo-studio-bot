@@ -6,6 +6,17 @@ const dbQueries = require('./db.queries');
 const app = express();
 const port = process.env.PORT || 3000;
 
+//  Эндпоинт для проверки подключения к базе данных
+app.get('/test-db', async (req, res) => {
+    try {
+        const result = await db.query('SELECT NOW()'); // Простой запрос к БД
+        res.json({ message: 'Подключение к БД успешно!', timestamp: result.rows[0].now });
+    } catch (error) {
+        console.error("Ошибка подключения к БД:", error);
+        res.status(500).json({ message: 'Ошибка подключения к БД', error: error.message });
+    }
+});
+
 // Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
