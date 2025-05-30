@@ -3,6 +3,8 @@ require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const dbQueries = require('./db.queries');
+const cors = require('cors');
+app.use(cors());
 
 const app = express();
 const port = process.env.PORT || 3000;
