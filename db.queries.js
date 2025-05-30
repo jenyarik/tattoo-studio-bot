@@ -1,70 +1,99 @@
 // db.queries.js
-const db = require('./db');
+const { Pool } = require('pg');
+require('dotenv').config(); //  Подключаем переменные окружения
 
-//  Функция создания пользователя
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false //  ВНИМАНИЕ: В production-среде настроить SSL правильно!
+    }
+});
+
+async function query(text, params) {
+    try {
+        const res = await pool.query(text, params);
+        return res;
+    } catch (err) {
+        console.error('Ошибка при выполнении запроса', err);
+        throw err;
+    }
+}
+
 async function createUser(username, email, passwordHash, phone) {
-    const queryText = 'INSERT INTO users (username, email, password_hash, phone) VALUES ($1, $2, $3, $4) RETURNING *';
+    const queryText = `
+        INSERT INTO users (username, email, password_hash, phone)
+        VALUES ($1, $2, $3, $4)
+        RETURNING user_id, username, email, phone, registration_date
+    `;
     const values = [username, email, passwordHash, phone];
     try {
-        const result = await db.query(queryText, values);
+        const result = await query(queryText, values);
         return result.rows[0];
-    } catch (error) {
-        console.error("Ошибка при создании пользователя:", error);
-        throw error;
+    } catch (err) {
+        console.error('Ошибка при создании пользователя', err);
+        throw err;
     }
 }
 
-// Функция получения списка услуг
+async function getUserByEmail(email) {
+    const queryText = `
+        SELECT user_id, username, email, password_hash, phone
+        FROM users
+        WHERE email = $1
+    `;
+    const values = [email];
+    try {
+        const result = await query(queryText, values);
+        return result.rows[0];
+    } catch (err) {
+        console.error('Ошибка при получении пользователя по email', err);
+        throw err;
+    }
+}
+
 async function getServices() {
-    const queryText = 'SELECT * FROM services';
+    const queryText = `SELECT service_id, name, description, price FROM services`;
     try {
-        const result = await db.query(queryText);
+        const result = await query(queryText);
         return result.rows;
-    } catch (error) {
-        console.error("Ошибка при получении списка услуг:", error);
-        throw error;
+    } catch (err) {
+        console.error('Ошибка при получении списка услуг', err);
+        throw err;
     }
 }
 
-// Функция получения списка мастеров
 async function getMasters() {
-    const queryText = 'SELECT * FROM masters';
+    const queryText = `SELECT master_id, name, specialization FROM masters`;
     try {
-        const result = await db.query(queryText);
+        const result = await query(queryText);
         return result.rows;
-    } catch (error) {
-        console.error("Ошибка при получении списка мастеров:", error);
-        throw error;
+    } catch (err) {
+        console.error('Ошибка при получении списка мастеров', err);
+        throw err;
     }
 }
 
-//  Функция создания записи на прием
 async function createAppointment(userId, serviceId, masterId, appointmentDate, appointmentTime) {
-    const queryText = 'INSERT INTO appointments (user_id, service_id, master_id, appointment_date, appointment_time) VALUES ($1, $2, $3, $4, $5) RETURNING *';
+    const queryText = `
+        INSERT INTO appointments (user_id, service_id, master_id, appointment_date, appointment_time)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING appointment_id, user_id, service_id, master_id, appointment_date, appointment_time
+    `;
     const values = [userId, serviceId, masterId, appointmentDate, appointmentTime];
     try {
-        const result = await db.query(queryText, values);
+        const result = await query(queryText, values);
         return result.rows[0];
-    } catch (error) {
-        console.error("Ошибка при создании записи:", error);
-        throw error;
+    } catch (err) {
+        console.error('Ошибка при создании записи на прием', err);
+        throw err;
     }
 }
 
-//  Удаление таблицы bot_messages, если не используется
-//  const queryText = 'SELECT * FROM bot_messages';
-//  try {
-//      const result = await db.query(queryText);
-//      return result.rows;
-//  } catch (error) {
-//      console.error("Ошибка при получении списка мастеров:", error);
-//      throw error;
-//  }
-
 module.exports = {
+    query,
     createUser,
+    getUserByEmail,
     getServices,
     getMasters,
     createAppointment,
-    // Другие функции
 };
