@@ -14,7 +14,18 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // ========================================================================
 //  Эндпоинты API
 // ========================================================================
+// server.js
+app.post('/api/message', async (req, res) => {
+    const { text, userId } = req.body;
 
+    // Обработка сообщения пользователя
+    console.log('Получено сообщение:', text, 'от пользователя:', userId);
+
+    // Тут можно вызвать функцию обработки сообщения бота
+    const botResponse = await handleUserMessage(userId, text);
+
+    res.json({ response: botResponse });
+});
 //  Эндпоинт для проверки подключения к базе данных
 app.get('/test-db', async (req, res) => {
     try {
