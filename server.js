@@ -5,9 +5,10 @@ const bodyParser = require('body-parser');
 const dbQueries = require('./db.queries');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
-app.use(cors());
 
-const app = express();
+const app = express(); //  <--  Сначала инициализируем app
+
+app.use(cors());       //  <--  Потом используем app
 const port = process.env.PORT || 3000;
 
 // Middleware
