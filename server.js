@@ -34,6 +34,7 @@ app.post('/api/message', async (req, res) => {
     // Тут можно вызвать функцию обработки сообщения бота
     const botResponse = await handleUserMessage(userId, text);
 
+    res.setHeader('Content-Type', 'application/json');  // <--- Добавь эту строку
     res.json({ response: botResponse });
 });
 //  Эндпоинт для проверки подключения к базе данных
