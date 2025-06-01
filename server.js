@@ -8,13 +8,19 @@ const bcrypt = require('bcrypt');
 
 const app = express(); //  <--  Сначала инициализируем app
 
-app.use(cors());       //  <--  Потом используем app
+// Настройка CORS
+const corsOptions = {
+  origin: 'https://suvorov-studio.onrender.com', // Разрешить запросы только с этого домена
+  optionsSuccessStatus: 200 // Для старых браузеров
+};
+
+app.use(cors(corsOptions)); //  <-- Используем cors с опциями
+
 const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-
 // ========================================================================
 //  Эндпоинты API
 // ========================================================================
