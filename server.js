@@ -4,6 +4,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const dbQueries = require('./db.queries');
 const cors = require('cors');
+const bcrypt = require('bcrypt');
 app.use(cors());
 
 const app = express();
