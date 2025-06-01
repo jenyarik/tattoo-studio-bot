@@ -21,6 +21,14 @@ const port = process.env.PORT || 3000;
 // Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+//  Определяем функцию handleUserMessage
+// ========================================================================
+async function handleUserMessage(userId, text) {
+    //  Твоя логика обработки сообщения бота
+    console.log(`Обработка сообщения "${text}" от пользователя ${userId}`);
+    return `Вы сказали: ${text}`;
+}
 // ========================================================================
 //  Эндпоинты API
 // ========================================================================
