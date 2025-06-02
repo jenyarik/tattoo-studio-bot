@@ -115,14 +115,14 @@ async function getServiceByName(serviceName) {
 
 async function saveBotMessage(userId, messageText) {
     const queryText = `
-        INSERT INTO bot_messages (user_id, message_text)
-        VALUES ($1, $2)
+        INSERT INTO bot_messages (user_id, message, response)
+        VALUES ($1, $2, $3)                                   
         RETURNING message_id, created_at
     `;
-    const values = [userId, messageText];
+    const values = [userId, '', messageText];  // Изменено: '', messageText
     try {
         const result = await query(queryText, values);
-        return result.rows[0]; //  Возвращаем ID созданного сообщения
+        return result.rows[0]; // Возвращаем ID созданного сообщения
     } catch (err) {
         console.error('Ошибка при сохранении сообщения бота', err);
         throw err;
