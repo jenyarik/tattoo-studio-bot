@@ -19,6 +19,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 //  Обработка сообщений от пользователя
 async function handleUserMessage(userId, text) {
+     console.log(`handleUserMessage called with text: "${text}"`); //  Добавь эту строку
     console.log(`Обработка сообщения "${text}" от пользователя ${userId}`);
 
     const lowerCaseText = text.toLowerCase();
