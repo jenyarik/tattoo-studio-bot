@@ -23,8 +23,27 @@ async function handleUserMessage(userId, text) {
     console.log(`handleUserMessage called with text: "${text}"`); //  Добавь эту строку
     console.log(`Обработка сообщения "${text}" от пользователя ${userId}`);
 
-    const lowerCaseText = text.toLowerCase();
-
+const lowerCaseText = text.toLowerCase().trim(); // Добавляем trim() для удаления пробелов
+    //  Приветственное сообщение
+    if (lowerCaseText === '' || text.length === 0) { // Проверяем, является ли сообщение пустым
+        const welcomeMessage = `
+            👋 Приветствую! Я Чат-бот "Студия Суворова".\n
+            Я могу помочь тебе с:\n
+            - Регистрацией:  /register username email password phone\n
+            - Входом в систему: /login email password\n
+            - Просмотром списка мастеров: мастера\n
+            - Просмотром списка услуг: услуги\n
+            - Записью на прием: записаться [дата] [время] [мастер] [услуга]\n
+            \n
+            Чтобы начать, просто введи нужную команду!
+        `;
+        try {
+            await saveBotMessage(userId, welcomeMessage); //  Сохраняем приветственное сообщение
+        } catch (error) {
+            console.error("Error saving welcome message:", error);
+        }
+        return welcomeMessage;
+    }
     try {
         if (lowerCaseText === 'мастера') {
             const masters = await dbQueries.getMasters();
