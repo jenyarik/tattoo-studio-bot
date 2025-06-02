@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const dbQueries = require('./db.queries.js'); //  Импортируем db.queries.js
 const cors = require('cors');
 const bcrypt = require('bcrypt');
+const { getMasters, getServices, createAppointment, getMasterByName, getServiceByName } = require('./db.queries.js');
 
 const app = express();
 // Настройка CORS
