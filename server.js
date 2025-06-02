@@ -2,49 +2,89 @@
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
-const dbQueries = require('./db.queries');
+const dbQueries = require('./db.queries.js'); //  Импортируем db.queries.js
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 
-const app = express(); //  <--  Сначала инициализируем app
-
+const app = express();
 // Настройка CORS
 const corsOptions = {
-  origin: 'https://suvorov-studio.onrender.com', // Разрешить запросы только с этого домена
-  optionsSuccessStatus: 200 // Для старых браузеров
+    origin: 'https://suvorov-studio.onrender.com', // Разрешить запросы только с этого домена
+    optionsSuccessStatus: 200 // Для старых браузеров
 };
-
-app.use(cors(corsOptions)); //  <-- Используем cors с опциями
-
+app.use(cors(corsOptions));
 const port = process.env.PORT || 3000;
-
-// Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-//  Определяем функцию handleUserMessage
-// ========================================================================
+//  Обработка сообщений от пользователя
 async function handleUserMessage(userId, text) {
-    //  Твоя логика обработки сообщения бота
     console.log(`Обработка сообщения "${text}" от пользователя ${userId}`);
-    return `Вы сказали: ${text}`;
+
+    const lowerCaseText = text.toLowerCase();
+
+    try {
+        if (lowerCaseText === 'мастера') {
+            const masters = await dbQueries.getMasters();
+            if (masters && masters.length > 0) {
+                let response = "Список мастеров:\n";
+                masters.forEach(master => {
+                    response += `- ${master.name} (${master.specialization})\n`; //  Замени на фактические поля
+                });
+                return response;
+            } else {
+                return "К сожалению, список мастеров пуст.";
+            }
+        } else if (lowerCaseText === 'услуги') {
+            const services = await dbQueries.getServices();
+            if (services && services.length > 0) {
+                let response = "Список услуг:\n";
+                services.forEach(service => {
+                    response += `- ${service.name} - ${service.description} - ${service.price}\n`; //  Замени на фактические поля
+                });
+                return response;
+            } else {
+                return "К сожалению, список услуг пуст.";
+            }
+        } else if (lowerCaseText.startsWith('записаться')) {
+            //  Парсим команду "записаться"
+            const parts = lowerCaseText.split(' ');
+            if (parts.length < 5) {
+                return "Неверный формат команды 'записаться'. Используйте: записаться [дата] [время] [мастер] [услуга]";
+            }
+            const [_, date, time, masterName, serviceName] = parts;
+
+            //  Получаем ID мастера и услуги (используем dbQueries)
+            const master = await dbQueries.getMasterByName(masterName); // Добавь эту функцию в dbQueries
+            const service = await dbQueries.getServiceByName(serviceName); // Добавь эту функцию в dbQueries
+
+            if (!master || !service) {
+                return "Не удалось найти мастера или услугу.";
+            }
+
+            //  Создаем запись
+            const appointment = await dbQueries.createAppointment(userId, service.service_id, master.master_id, date, time); //  Добавь эту функцию в dbQueries
+            return `Вы записаны к мастеру ${master.name} на ${date} в ${time}.`;
+
+        } else {
+            return `Вы сказали: ${text}`; //  Ответ по умолчанию
+        }
+    } catch (error) {
+        console.error("Ошибка при обработке команды:", error);
+        return "Произошла ошибка при обработке вашей команды.";
+    }
 }
-// ========================================================================
-//  Эндпоинты API
-// ========================================================================
-// server.js
+
 app.post('/api/message', async (req, res) => {
     const { text, userId } = req.body;
-
     // Обработка сообщения пользователя
     console.log('Получено сообщение:', text, 'от пользователя:', userId);
-
-    // Тут можно вызвать функцию обработки сообщения бота
+    //  Вызываем функцию обработки сообщения бота
     const botResponse = await handleUserMessage(userId, text);
-
-    res.setHeader('Content-Type', 'application/json');  // <--- Добавь эту строку
+    res.setHeader('Content-Type', 'application/json');  //  <--- Добавлено
     res.json({ response: botResponse });
 });
+
 //  Эндпоинт для проверки подключения к базе данных
 app.get('/test-db', async (req, res) => {
     try {
@@ -60,10 +100,9 @@ app.get('/test-db', async (req, res) => {
 app.post('/register', async (req, res) => {
     const { username, email, password, phone } = req.body;
     try {
-        //  Хеширование пароля (с использованием bcrypt)
+        //  Хеширование пароля
         const saltRounds = 10;
         const passwordHash = await bcrypt.hash(password, saltRounds);
-
         const newUser = await dbQueries.createUser(username, email, passwordHash, phone);
         res.status(201).json({ message: 'Пользователь успешно создан', user: newUser });
     } catch (error) {
@@ -77,11 +116,9 @@ app.post('/login', async (req, res) => {
     const { email, password } = req.body;
     try {
         const user = await dbQueries.getUserByEmail(email);
-
         if (user) {
-            //  Сравниваем пароль с хешем в базе данных
+            //  Сравниваем пароль с хешем в бд
             const passwordMatch = await bcrypt.compare(password, user.password_hash);
-
             if (passwordMatch) {
                 res.json({ message: 'Вход выполнен!', user: { user_id: user.user_id, username: user.username, email: user.email } });
             } else {
@@ -96,7 +133,7 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// Ендпоинт для получения списка услуг
+//  Ендпоинт для получения списка услуг
 app.get('/services', async (req, res) => {
     try {
         const services = await dbQueries.getServices();
