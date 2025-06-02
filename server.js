@@ -181,7 +181,6 @@ app.get('/init', async (req, res) => { //  Новый эндпоинт - `/init`
         Чтобы начать, просто введи нужную команду!
     `;
     try {
-        await saveBotMessage(userId, welcomeMessage); //  Сохраняем приветственное сообщение
         res.json({ response: welcomeMessage }); // Отправляем приветственное сообщение в ответ
     } catch (error) {
         console.error("Error sending welcome message:", error);
