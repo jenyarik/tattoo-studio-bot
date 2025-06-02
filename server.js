@@ -25,10 +25,10 @@ async function handleUserMessage(userId, text) {
 
  const lowerCaseText = text.toLowerCase().trim(); // Добавляем trim() для удаления пробелов
     const welcomeMessage = `
-        👋 Приветствую! Я Чат-бот "Студия Суворова".\n
+        👋 Приветствую! Я Чат-бот "Студии Суворова".\n
         Я могу помочь тебе с:\n
-        - Регистрацией:  /register username email password phone\n
-        - Входом в систему: /login email password\n
+        - Регистрацией:  зарегистрироваться [имя пользователя] [email] [пароль] [телефон]\n
+        - Входом в систему: войти [email] [пароль]\n
         - Просмотром списка мастеров: мастера\n
         - Просмотром списка услуг: услуги\n
         - Записью на прием: записаться [дата] [время] [мастер] [услуга]\n
@@ -78,10 +78,10 @@ async function handleUserMessage(userId, text) {
             const appointment = await dbQueries.createAppointment(userId, service.service_id, master.master_id, date, time); //  Добавь эту функцию в dbQueries
             return `Вы записаны к мастеру ${master.name} на ${date} в ${time}.`;
 
-        } else if (lowerCaseText.startsWith('/register')) { // Обработка команды /register
+        } else if (lowerCaseText.startsWith('зарегистрироваться')) { // Обработка команды /register
             const parts = text.split(' ');
             if (parts.length < 5) {
-                return "Неверный формат команды /register. Используйте: /register username email password phone";
+                return "Неверный формат команды зарегистрироваться. Используйте: зарегистрироваться [имя пользователя] [email] [пароль] [телефон]";
             }
             const [_, username, email, password, phone] = parts;
             try {
@@ -100,11 +100,11 @@ async function handleUserMessage(userId, text) {
                 }
                 return "Произошла ошибка при регистрации.";
             }
-        } else if (lowerCaseText.startsWith('/login')) { // Обработка команды /login
-            console.log("Processing '/login' command");
+        } else if (lowerCaseText.startsWith('войти')) { // Обработка команды /login
+            console.log("Processing 'войти' command");
             const parts = text.split(' ');
             if (parts.length < 3) {
-                return "Неверный формат команды /login. Используйте: /login email password";
+                return "Неверный формат команды войти. Используйте: войти [email] [пароль]";
             }
             const [_, email, password] = parts;
 
