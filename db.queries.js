@@ -75,9 +75,15 @@ async function getMasters() {
 
 async function createAppointment(userId, serviceId, masterId, appointmentDate, appointmentTime) {
     const queryText = `
-        INSERT INTO appointments (user_id, service_id, master_id, appointment_date, appointment_time)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING appointment_id, user_id, service_id, master_id, appointment_date, appointment_time
+INSERT INTO appointments (user_id, service_id, master_id, appointment_date, appointment_time)
+VALUES (
+    $1,
+    $2,
+    (SELECT master_id FROM masters WHERE master_name = $3),
+    $4,
+    $5
+)
+RETURNING appointment_id, user_id, service_id, master_id, appointment_date, appointment_time;
     `;
     const values = [userId, serviceId, masterId, appointmentDate, appointmentTime];
     try {
