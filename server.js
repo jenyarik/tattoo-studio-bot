@@ -5,7 +5,7 @@ const bodyParser = require('body-parser');
 const dbQueries = require('./db.queries.js'); //  Импортируем db.queries.js
 const cors = require('cors');
 const bcrypt = require('bcrypt');
-const { getMasters, getServices, createAppointment, getMasterByName, getServiceByName } = require('./db.queries.js');
+const { getMasters, getServices, createAppointment, getMasterByName, getServiceByName, saveBotMessage } = require('./db.queries.js');
 
 const app = express();
 // Настройка CORS
@@ -20,7 +20,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 //  Обработка сообщений от пользователя
 async function handleUserMessage(userId, text) {
-     console.log(`handleUserMessage called with text: "${text}"`); //  Добавь эту строку
+    console.log(`handleUserMessage called with text: "${text}"`); //  Добавь эту строку
     console.log(`Обработка сообщения "${text}" от пользователя ${userId}`);
 
     const lowerCaseText = text.toLowerCase();
@@ -68,9 +68,60 @@ async function handleUserMessage(userId, text) {
             const appointment = await dbQueries.createAppointment(userId, service.service_id, master.master_id, date, time); //  Добавь эту функцию в dbQueries
             return `Вы записаны к мастеру ${master.name} на ${date} в ${time}.`;
 
-        } else {
+        } else if (lowerCaseText.startsWith('/register')) { // Обработка команды /register
+            const parts = text.split(' ');
+            if (parts.length < 5) {
+                return "Неверный формат команды /register. Используйте: /register username email password phone";
+            }
+            const [_, username, email, password, phone] = parts;
+            try {
+                // Хеширование пароля
+                const saltRounds = 10;
+                const passwordHash = await bcrypt.hash(password, saltRounds);
+                // Вызываем функцию createUser из db.queries
+                const newUser = await dbQueries.createUser(username, email, passwordHash, phone);
+                console.log("New user created:", newUser);
+                return "Регистрация успешна!"; // Ответ пользователю
+            } catch (error) {
+                console.error("Error registering user:", error);
+                // Обрабатываем ошибки, например, если email уже существует
+                if (error.constraint === 'users_email_key') { // Пример обработки ошибки уникальности email
+                    return "Пользователь с таким email уже существует.";
+                }
+                return "Произошла ошибка при регистрации.";
+            }
+        } else if (lowerCaseText.startsWith('/login')) { // Обработка команды /login
+            console.log("Processing '/login' command");
+            const parts = text.split(' ');
+            if (parts.length < 3) {
+                return "Неверный формат команды /login. Используйте: /login email password";
+            }
+            const [_, email, password] = parts;
+
+            try {
+                const user = await dbQueries.getUserByEmail(email);
+                if (!user) {
+                    return "Пользователь с таким email не найден.";
+                }
+
+                const passwordMatch = await bcrypt.compare(password, user.password_hash);
+                if (!passwordMatch) {
+                    return "Неверный пароль.";
+                }
+
+                //  Успешный вход.  (Здесь ты можешь реализовать сессии или JWT)
+                console.log("Login successful:", user);
+                return "Вход выполнен!"; //  Сообщение об успешном входе
+
+            } catch (error) {
+                console.error("Error logging in:", error);
+                return "Произошла ошибка при входе.";
+            }
+        }
+        else {
             return `Вы сказали: ${text}`; //  Ответ по умолчанию
         }
+
     } catch (error) {
         console.error("Ошибка при обработке команды:", error);
         return "Произошла ошибка при обработке вашей команды.";
@@ -83,6 +134,13 @@ app.post('/api/message', async (req, res) => {
     console.log('Получено сообщение:', text, 'от пользователя:', userId);
     //  Вызываем функцию обработки сообщения бота
     const botResponse = await handleUserMessage(userId, text);
+    //  Сохраняем сообщение бота
+    try {
+        await saveBotMessage(userId, botResponse);  //  <-- Добавь это
+        console.log("Bot message saved");
+    } catch (error) {
+        console.error("Error saving bot message:", error);
+    }
     res.setHeader('Content-Type', 'application/json');  //  <--- Добавлено
     res.json({ response: botResponse });
 });
