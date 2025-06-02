@@ -1,12 +1,12 @@
 // db.queries.js
 const { Pool } = require('pg');
-require('dotenv').config(); //  Подключаем переменные окружения
+require('dotenv').config(); // Подключаем .env
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false //  ВНИМАНИЕ: В production-среде настроить SSL правильно!
-    }
+        rejectUnauthorized: false, // REMOVE IN PRODUCTION
+    },
 });
 
 async function query(text, params) {
@@ -89,6 +89,30 @@ async function createAppointment(userId, serviceId, masterId, appointmentDate, a
     }
 }
 
+async function getMasterByName(masterName) {
+    const queryText = `SELECT master_id, name, specialization FROM masters WHERE name = $1`;
+    const values = [masterName];
+    try {
+        const result = await query(queryText, values);
+        return result.rows[0]; // Предполагаем, что имя мастера уникально
+    } catch (err) {
+        console.error('Ошибка при получении мастера по имени', err);
+        throw err;
+    }
+}
+
+async function getServiceByName(serviceName) {
+    const queryText = `SELECT service_id, name, description, price FROM services WHERE name = $1`;
+    const values = [serviceName];
+    try {
+        const result = await query(queryText, values);
+        return result.rows[0]; //  Предполагаем, что название услуги уникально
+    } catch (err) {
+        console.error('Ошибка при получении услуги по имени', err);
+        throw err;
+    }
+}
+
 module.exports = {
     query,
     createUser,
@@ -96,4 +120,6 @@ module.exports = {
     getServices,
     getMasters,
     createAppointment,
+    getMasterByName,
+    getServiceByName,
 };
