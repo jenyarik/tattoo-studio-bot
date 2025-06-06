@@ -19,13 +19,13 @@ async function query(text, params) {
     }
 }
 
-async function createUser(username, email, passwordHash, phone) {
+async function createUser(username, email, password, phone) {
     const queryText = `
-        INSERT INTO users (username, email, password_hash, phone)
+        INSERT INTO users (username, email, password, phone)
         VALUES ($1, $2, $3, $4)
         RETURNING user_id, username, email, phone, registration_date
     `;
-    const values = [username, email, passwordHash, phone];
+    const values = [username, email, password, phone];
     try {
         const result = await query(queryText, values);
         return result.rows[0];
@@ -37,7 +37,7 @@ async function createUser(username, email, passwordHash, phone) {
 
 async function getUserByEmail(email) {
     const queryText = `
-        SELECT user_id, username, email, password_hash, phone
+        SELECT user_id, username, email, password, phone
         FROM users
         WHERE email = $1
     `;
