@@ -35,113 +35,101 @@ async function handleUserMessage(userId, text) {
         
         Чтобы начать, просто введи нужную команду!`;
 
-    try {
-        if (lowerCaseText === 'мастера') {
-            const masters = await dbQueries.getMasters();
-            if (masters && masters.length > 0) {
-                let response = "Список мастеров:\n";
-                masters.forEach(master => {
-                    response += `- ${master.name} (${master.specialization})\n`;
-                });
-                return response;
-            } else {
-                return "К сожалению, список мастеров пуст.";
-            }
-        } else if (lowerCaseText === 'услуги') {
-            const services = await dbQueries.getServices();
-            if (services && services.length > 0) {
-                let response = "Список услуг:\n";
-                services.forEach(service => {
-                    response += `- ${service.name} - ${service.description} - ${service.price}\n`; 
-                });
-                return response;
-            } else {
-                return "К сожалению, список услуг пуст.";
-            }
-        } else if (lowerCaseText.startsWith('записаться')) {
-  
-    const commandBody = lowerCaseText.slice('записаться'.length).trim();
-    // Разделяем по запятым
-    const parts = commandBody.split(',').map(part => part.trim());
-
-    if (parts.length < 3) {
-        return "Неверный формат команды. Используйте: записаться [дата] [время], [имя мастера], [услуга]";
-    }
-
-    const [dateTimeStr, masterName, serviceName] = parts;
-
-    // Разделяем дату и время
-    const dateTimeParts = dateTimeStr.split(' ');
-    if (dateTimeParts.length < 2) {
-        return "Пожалуйста, укажите дату и время в формате: ГГГГ-ММ-ДД ЧЧ:ММ";
-    }
-    const [date, time] = dateTimeParts;
-
-    // Теперь ищем мастера и услугу
-    const master = await dbQueries.getMasterByName(masterName);
-    const service = await dbQueries.getServiceByName(serviceName);
-
-    if (!master || !service) {
-        return "Не удалось найти мастера или услугу.";
-    }
-
-    const appointment = await dbQueries.createAppointment(userId, service.service_id, master.master_id, date, time);
-    return `Вы записаны к мастеру ${master.name} на ${date} в ${time}.`;
-}
-
-        } else if (lowerCaseText.startsWith('зарегистрироваться')) {
-            const parts = text.split(' ');
-            if (parts.length < 5) {
-                return "Неверный формат команды зарегистрироваться. Используйте: зарегистрироваться [имя пользователя] [email] [пароль] [телефон]";
-            }
-            const [_, username, email, password, phone] = parts;
-            try {
-                
-                // Вызываем функцию createUser из db.queries
-                const newUser = await dbQueries.createUser(username, email, password, phone); // Передаем пароль в открытом виде
-                console.log("New user created:", newUser);
-                return "Регистрация успешна!";
-            } catch (error) {
-                console.error("Error registering user:", error);
-                if (error.constraint === 'users_email_key') {
-                    return "Пользователь с таким email уже существует.";
-                }
-                return "Произошла ошибка при регистрации.";
-            }
-        } else if (lowerCaseText.startsWith('войти')) {
-            console.log("Processing 'войти' command");
-            const parts = text.split(' ');
-            if (parts.length < 3) {
-                return "Неверный формат команды войти. Используйте: войти [email] [пароль]";
-            }
-            const [_, email, password] = parts;
-
-            try {
-                const user = await dbQueries.getUserByEmail(email);
-                if (!user) {
-                    return "Пользователь с таким email не найден.";
-                }
-
-                // Прямое сравнение паролей (ОПАСНО!)
-                if (password === user.password) {
-                    console.log("Login successful:", user);
-                    return "Вход выполнен!"; // Сообщение об успешном входе
-                } else {
-                    return "Неверный пароль.";
-                }
-
-            } catch (error) {
-                console.error("Error logging in:", error);
-                return "Произошла ошибка при входе.";
-            }
+    if (lowerCaseText === 'мастера') {
+        const masters = await dbQueries.getMasters();
+        if (masters && masters.length > 0) {
+            let response = "Список мастеров:\n";
+            masters.forEach(master => {
+                response += `- ${master.name} (${master.specialization})\n`;
+            });
+            return response;
+        } else {
+            return "К сожалению, список мастеров пуст.";
         }
-        else {
-            return `Вы сказали: ${text}`; // Ответ по умолчанию
+    } else if (lowerCaseText === 'услуги') {
+        const services = await dbQueries.getServices();
+        if (services && services.length > 0) {
+            let response = "Список услуг:\n";
+            services.forEach(service => {
+                response += `- ${service.name} - ${service.description} - ${service.price}\n`; 
+            });
+            return response;
+        } else {
+            return "К сожалению, список услуг пуст.";
+        }
+    } else if (lowerCaseText.startsWith('записаться')) {
+        const commandBody = lowerCaseText.slice('записаться'.length).trim();
+        // Разделяем по запятым
+        const parts = commandBody.split(',').map(part => part.trim());
+
+        if (parts.length < 3) {
+            return "Неверный формат команды. Используйте: записаться [дата] [время], [имя мастера], [услуга]";
         }
 
-    } catch (error) {
-        console.error("Ошибка при обработке команды:", error);
-        return "Произошла ошибка при обработке вашей команды.";
+        const [dateTimeStr, masterName, serviceName] = parts;
+
+        // Разделяем дату и время
+        const dateTimeParts = dateTimeStr.split(' ');
+        if (dateTimeParts.length < 2) {
+            return "Пожалуйста, укажите дату и время в формате: ГГГГ-ММ-ДД ЧЧ:ММ";
+        }
+        const [date, time] = dateTimeParts;
+
+        // Теперь ищем мастера и услугу
+        const master = await dbQueries.getMasterByName(masterName);
+        const service = await dbQueries.getServiceByName(serviceName);
+
+        if (!master || !service) {
+            return "Не удалось найти мастера или услугу.";
+        }
+
+        const appointment = await dbQueries.createAppointment(userId, service.service_id, master.master_id, date, time);
+        return `Вы записаны к мастеру ${master.name} на ${date} в ${time}.`;
+    } else if (lowerCaseText.startsWith('зарегистрироваться')) {
+        const parts = text.split(' ');
+        if (parts.length < 5) {
+            return "Неверный формат команды зарегистрироваться. Используйте: зарегистрироваться [имя пользователя] [email] [пароль] [телефон]";
+        }
+        const [_, username, email, password, phone] = parts;
+        try {
+            // Вызываем функцию createUser из db.queries
+            const newUser = await dbQueries.createUser(username, email, password, phone); // Передаем пароль в открытом виде
+            console.log("New user created:", newUser);
+            return "Регистрация успешна!";
+        } catch (error) {
+            console.error("Error registering user:", error);
+            if (error.constraint === 'users_email_key') {
+                return "Пользователь с таким email уже существует.";
+            }
+            return "Произошла ошибка при регистрации.";
+        }
+    } else if (lowerCaseText.startsWith('войти')) {
+        console.log("Processing 'войти' command");
+        const parts = text.split(' ');
+        if (parts.length < 3) {
+            return "Неверный формат команды войти. Используйте: войти [email] [пароль]";
+        }
+        const [_, email, password] = parts;
+
+        try {
+            const user = await dbQueries.getUserByEmail(email);
+            if (!user) {
+                return "Пользователь с таким email не найден.";
+            }
+
+            // Прямое сравнение паролей (ОПАСНО!)
+            if (password === user.password) {
+                console.log("Login successful:", user);
+                return "Вход выполнен!"; // Сообщение об успешном входе
+            } else {
+                return "Неверный пароль.";
+            }
+        } catch (error) {
+            console.error("Error logging in:", error);
+            return "Произошла ошибка при входе.";
+        }
+    } else {
+        return `Вы сказали: ${text}`; // Ответ по умолчанию
     }
 }
 
