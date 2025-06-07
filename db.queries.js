@@ -88,11 +88,24 @@ async function createAppointment(userId, serviceId, masterId, appointmentDate, a
     const values = [userId, serviceId, masterId, appointmentDate, appointmentTime];
     try {
         const result = await query(queryText, values);
-        return result.rows[0];
+        if (result.rows.length > 0) {
+            return result.rows[0];
+        } else {
+            return null; // Или бросить ошибку, если нет результатов
+        }
     } catch (err) {
-        console.error('Ошибка при создании записи на прием', err);
-        throw err;
+        console.error('Ошибка при создании записи о записи:', err);
+        // Важно:  обработайте ошибку.  Не просто выведите сообщение.
+        // Например, если это ошибка базы данных, верните соответствующий код ошибки
+        if (err.code === '23505') { // пример, если ошибка дублирования
+            return { error: 'Ошибка: запись с такой датой и временем уже существует' };
+        } else if (err.detail) {
+          return { error: err.detail }; //  Если есть более подробная информация об ошибке
+        } else {
+          return { error: 'Ошибка при создании записи.' };
+        }
     }
+}
 
 async function getMasterByName(masterName) {
     const queryText = `SELECT master_id, name, specialization FROM masters WHERE name = $1`;
