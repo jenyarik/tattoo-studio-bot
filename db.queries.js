@@ -79,7 +79,7 @@ async function createAppointment(userId, serviceId, masterId, appointmentDate, a
         VALUES (
             $1,
             $2,
-            (SELECT master_id FROM masters WHERE name = $3),  -- Изменено: name вместо master_name
+            $3,
             $4,
             $5
         )
@@ -93,7 +93,6 @@ async function createAppointment(userId, serviceId, masterId, appointmentDate, a
         console.error('Ошибка при создании записи на прием', err);
         throw err;
     }
-}
 
 async function getMasterByName(masterName) {
     const queryText = `SELECT master_id, name, specialization FROM masters WHERE name = $1`;
