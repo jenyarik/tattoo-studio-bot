@@ -1,220 +1,164 @@
+// server.js
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
-const dbQueries = require('./db.queries.js');
+const dbQueries = require('./db.queries.js'); //  Импортируем db.queries.js
 const cors = require('cors');
+const bcrypt = require('bcrypt');
+const { getMasters, getServices, createAppointment, getMasterByName, getServiceByName, saveBotMessage } = require('./db.queries.js');
 
 const app = express();
-
 // Настройка CORS
 const corsOptions = {
-    origin: 'https://suvorov-studio.onrender.com', //  Укажи свой домен
-    optionsSuccessStatus: 200
+    origin: 'https://suvorov-studio.onrender.com', // Разрешить запросы только с этого домена
+    optionsSuccessStatus: 200 // Для старых браузеров
 };
 app.use(cors(corsOptions));
-
 const port = process.env.PORT || 3000;
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Middleware для проверки, что пользователь вошел в систему (очень простой)
-let loggedInUserId = null; //  Переменная для хранения ID вошедшего пользователя
+//  Обработка сообщений от пользователя
+async function handleUserMessage(userId, text) {
+    console.log(`handleUserMessage called with text: "${text}"`); //  Добавь эту строку
+    console.log(`Обработка сообщения "${text}" от пользователя ${userId}`);
 
-function requireLogin(req, res, next) {
-    if (!loggedInUserId) {
-        return res.status(401).json({ message: 'Требуется войти в систему.' });
-    }
-    next();
-}
-
-// Обработка сообщений от пользователя
-async function handleUserMessage(text, userId) {
-    console.log(`handleUserMessage called with text: "${text}" and userId: "${userId}"`);
-
-    const lowerCaseText = text.toLowerCase().trim();
+ const lowerCaseText = text.toLowerCase().trim(); // Добавляем trim() для удаления пробелов
     const welcomeMessage = `
         👋 Приветствую! Я Чат-бот "Студии Суворова".<br>
         Я могу помочь тебе с:<br>
-        - Регистрацией: зарегистрироваться [имя пользователя], [email,пароль,телефон]<br>
+        - Регистрацией:  зарегистрироваться [имя пользователя] [email] [пароль] [телефон]<br>
         - Входом в систему: войти [email] [пароль]<br>
         - Просмотром списка мастеров: мастера<br>
         - Просмотром списка услуг: услуги<br>
-        - Записью на прием: записаться [дата] [время], [мастер,услуга]<br>
+        - Записью на прием: записаться [дата] [время] [мастер] [услуга]<br>
         
-        Чтобы начать, просто введи нужную команду!`;
+       Чтобы начать, просто введи нужную команду!`;
 
-    let botResponse = null;
-
-    if (lowerCaseText === 'мастера') {
-        try {
+    try {
+        if (lowerCaseText === 'мастера') {
             const masters = await dbQueries.getMasters();
             if (masters && masters.length > 0) {
                 let response = "Список мастеров:\n";
                 masters.forEach(master => {
-                    response += `- ${master.name} (${master.specialization})\n`;
+                    response += `- ${master.name} (${master.specialization})\n`; //  Замени на фактические поля
                 });
-                botResponse = response;
+                return response;
             } else {
-                botResponse = "К сожалению, список мастеров пуст.";
+                return "К сожалению, список мастеров пуст.";
             }
-        } catch (error) {
-            console.error("Ошибка при получении списка мастеров:", error);
-            botResponse = "Произошла ошибка при получении списка мастеров.";
-        }
-    }
-
-    if (lowerCaseText === 'услуги') {
-        try {
+        } else if (lowerCaseText === 'услуги') {
             const services = await dbQueries.getServices();
             if (services && services.length > 0) {
                 let response = "Список услуг:\n";
                 services.forEach(service => {
-                    response += `- ${service.name} - ${service.description} - ${service.price}\n`;
+                    response += `- ${service.name} - ${service.description} - ${service.price}\n`; //  Замени на фактические поля
                 });
-                botResponse = response;
+                return response;
             } else {
-                botResponse = "К сожалению, список услуг пуст.";
+                return "К сожалению, список услуг пуст.";
             }
-        } catch (error) {
-            console.error("Ошибка при получении списка услуг:", error);
-            botResponse = "Произошла ошибка при получении списка услуг.";
-        }
-    }
+        } else if (lowerCaseText.startsWith('записаться')) {
+            //  Парсим команду "записаться"
+            const parts = lowerCaseText.split(' ');
+            if (parts.length < 5) {
+                return "Неверный формат команды 'записаться'. Используйте: записаться [дата] [время] [мастер] [услуга]";
+            }
+            const [_, date, time, masterName, serviceName] = parts;
 
-    if (lowerCaseText.startsWith('записаться')) {
-        const commandBody = lowerCaseText.slice('записаться'.length).trim();
-        // Разделяем по запятым
-        const parts = commandBody.split(',').map(part => part.trim());
+            //  Получаем ID мастера и услуги (используем dbQueries)
+            const master = await dbQueries.getMasterByName(masterName); // Добавь эту функцию в dbQueries
+            const service = await dbQueries.getServiceByName(serviceName); // Добавь эту функцию в dbQueries
 
-        if (parts.length !== 2) {
-            botResponse = "Неверный формат команды. Используйте: записаться [дата] [время], [мастер,услуга]";
-        } else {
+            if (!master || !service) {
+                return "Не удалось найти мастера или услугу.";
+            }
 
-            const [dateTimeStr, masterAndServiceName] = parts;
-             const [masterName, serviceName] = masterAndServiceName.split(',').map(part => part.trim());
+            //  Создаем запись
+            const appointment = await dbQueries.createAppointment(userId, service.service_id, master.master_id, date, time); //  Добавь эту функцию в dbQueries
+            return `Вы записаны к мастеру ${master.name} на ${date} в ${time}.`;
 
-
-            // Разделяем дату и время
-            const dateTimeParts = dateTimeStr.split(' ');
-            if (dateTimeParts.length < 2) {
-                botResponse = "Пожалуйста, укажите дату и время в формате: ГГГГ-ММ-ДД ЧЧ:ММ";
-            } else {
-                const [date, time] = dateTimeParts;
-
-                // Теперь ищем мастера и услугу
-                try {
-                    const master = await dbQueries.getMasterByName(masterName);
-                    const service = await dbQueries.getServiceByName(serviceName);
-
-                    if (!master || !service) {
-                        botResponse = "Не удалось найти мастера или услугу.";
-                    } else {
-                        // Используем loggedInUserId
-                        try {
-                            const appointment = await dbQueries.createAppointment(loggedInUserId, service.service_id, master.master_id, date, time);
-                            if (appointment) {
-                                botResponse = `Вы записаны к мастеру ${master.name} на ${date} в ${time}.`;
-                            } else {
-                                botResponse = "Не удалось создать запись.";
-                            }
-                        } catch (error) {
-                            console.error("Ошибка при создании записи:", error);
-                            botResponse = "Произошла ошибка при записи. Попробуйте позже.";
-                        }
-                    }
-                } catch (error) {
-                    console.error("Ошибка при поиске мастера или услуги:", error);
-                    botResponse = "Произошла ошибка при поиске мастера или услуги. Попробуйте позже.";
+        } else if (lowerCaseText.startsWith('зарегистрироваться')) { // Обработка команды /register
+            const parts = text.split(' ');
+            if (parts.length < 5) {
+                return "Неверный формат команды зарегистрироваться. Используйте: зарегистрироваться [имя пользователя] [email] [пароль] [телефон]";
+            }
+            const [_, username, email, password, phone] = parts;
+            try {
+                // Хеширование пароля
+                const saltRounds = 10;
+                const passwordHash = await bcrypt.hash(password, saltRounds);
+                // Вызываем функцию createUser из db.queries
+                const newUser = await dbQueries.createUser(username, email, passwordHash, phone);
+                console.log("New user created:", newUser);
+                return "Регистрация успешна!"; // Ответ пользователю
+            } catch (error) {
+                console.error("Error registering user:", error);
+                // Обрабатываем ошибки, например, если email уже существует
+                if (error.constraint === 'users_email_key') { // Пример обработки ошибки уникальности email
+                    return "Пользователь с таким email уже существует.";
                 }
+                return "Произошла ошибка при регистрации.";
             }
-        }
-    }
-
-    if (lowerCaseText.startsWith('зарегистрироваться')) {
-        const commandBody = text.slice('зарегистрироваться'.length).trim();
-        const parts = commandBody.split(',');
-
-        if (parts.length !== 2) {
-            botResponse = "Неверный формат команды зарегистрироваться. Используйте: зарегистрироваться [имя пользователя], [email,пароль,телефон]";
-        } else {
-
-            const username = parts[0].trim();
-            const remainingPart = parts[1].trim();
-            const [email, password, phone] = remainingPart.split(',').map(part => part.trim()); // Разделяем email, password и phone
-
-            if (!email || !password || !phone) {
-                botResponse = "Неверный формат команды зарегистрироваться. [email,пароль,телефон] должны быть разделены запятыми.";
-            } else {
-                try {
-                    // Вызываем функцию createUser из db.queries
-                    const newUser = await dbQueries.createUser(username, email, password, phone);
-                    console.log("New user created:", newUser);
-                    botResponse = "Регистрация успешна!";
-                } catch (error) {
-                    console.error("Error registering user:", error);
-                    if (error.constraint === 'users_email_key') {
-                        botResponse = "Пользователь с таким email уже существует.";
-                    } else {
-                        botResponse = "Произошла ошибка при регистрации.";
-                    }
-                }
+        } else if (lowerCaseText.startsWith('войти')) { // Обработка команды /login
+            console.log("Processing 'войти' command");
+            const parts = text.split(' ');
+            if (parts.length < 3) {
+                return "Неверный формат команды войти. Используйте: войти [email] [пароль]";
             }
-        }
-    }
-
-    if (lowerCaseText.startsWith('войти')) {
-        console.log("Processing 'войти' command");
-        const parts = text.split(' ');
-        if (parts.length < 3) {
-            botResponse = "Неверный формат команды войти. Используйте: войти [email] [пароль]";
-        } else {
             const [_, email, password] = parts;
 
             try {
                 const user = await dbQueries.getUserByEmail(email);
                 if (!user) {
-                    botResponse = "Пользователь с таким email не найден.";
-                } else {
-                    // Прямое сравнение паролей (ОПАСНО!)
-                    if (password === user.password) {
-                        console.log("Login successful:", user);
-                        loggedInUserId = user.user_id; //  Сохраняем ID вошедшего пользователя
-                        botResponse = "Вход выполнен!"; // Сообщение об успешном входе
-                    } else {
-                        botResponse = "Неверный пароль.";
-                    }
+                    return "Пользователь с таким email не найден.";
                 }
+
+                const passwordMatch = await bcrypt.compare(password, user.password_hash);
+                if (!passwordMatch) {
+                    return "Неверный пароль.";
+                }
+
+                //  Успешный вход.  (Здесь ты можешь реализовать сессии или JWT)
+                console.log("Login successful:", user);
+                return "Вход выполнен!"; //  Сообщение об успешном входе
 
             } catch (error) {
                 console.error("Error logging in:", error);
-                botResponse = "Произошла ошибка при входе.";
+                return "Произошла ошибка при входе.";
             }
         }
-    }
+        else {
+            return `Вы сказали: ${text}`; //  Ответ по умолчанию
+        }
 
-    if (!botResponse) {
-        botResponse = `Вы сказали: ${text}`; // Ответ по умолчанию
+    } catch (error) {
+        console.error("Ошибка при обработке команды:", error);
+        return "Произошла ошибка при обработке вашей команды.";
     }
-
-    return botResponse;
 }
 
 app.post('/api/message', async (req, res) => {
-    const { text } = req.body; // игнорируем userId
+    const { text, userId } = req.body;
+    // Обработка сообщения пользователя
+    console.log('Получено сообщение:', text, 'от пользователя:', userId);
+    //  Вызываем функцию обработки сообщения бота
+    const botResponse = await handleUserMessage(userId, text);
+    //  Сохраняем сообщение бота
     try {
-        const botResponse = await handleUserMessage(text); // без userId
-        await saveBotMessage(null, botResponse); // без userId
-        res.json({ response: botResponse });
+        await saveBotMessage(userId, botResponse);  //  <-- Добавь это
+        console.log("Bot message saved");
     } catch (error) {
-        console.error('Ошибка:', error);
-        res.status(500).json({ message: 'Произошла ошибка.' });
+        console.error("Error saving bot message:", error);
     }
+    res.setHeader('Content-Type', 'application/json');  //  <--- Добавлено
+    res.json({ response: botResponse });
 });
 
 //  Эндпоинт для проверки подключения к базе данных
 app.get('/test-db', async (req, res) => {
     try {
-        const result = await dbQueries.query('SELECT NOW()');
+        const result = await dbQueries.query('SELECT NOW()'); // Простой запрос к БД
         res.json({ message: 'Подключение к БД успешно!', timestamp: result.rows[0].now });
     } catch (error) {
         console.error("Ошибка подключения к БД:", error);
@@ -223,19 +167,20 @@ app.get('/test-db', async (req, res) => {
 });
 
 //  Добавим отправку приветственного сообщения при загрузке страницы
-app.get('/init', async (req, res) => {
+app.get('/init', async (req, res) => { //  Новый эндпоинт - `/init`
+    const userId = '123'; // Замените на реальный userId, если это необходимо
     const welcomeMessage = `
         👋 Приветствую! Я Чат-бот "Студии Суворова".<br>
         Я могу помочь тебе с:<br>
-        - Регистрацией: зарегистрироваться [имя пользователя], [email,пароль,телефон]<br>
+        - Регистрацией:  зарегистрироваться [имя пользователя] [email] [пароль] [телефон]<br>
         - Входом в систему: войти [email] [пароль]<br>
         - Просмотром списка мастеров: мастера<br>
         - Просмотром списка услуг: услуги<br>
-        - Записью на прием: записаться [дата] [время], [мастер,услуга]<br>
+        - Записью на прием: записаться [дата] [время] [мастер] [услуга]<br>
         
         Чтобы начать, просто введи нужную команду!`;
     try {
-        res.json({ response: welcomeMessage });
+        res.json({ response: welcomeMessage }); // Отправляем приветственное сообщение в ответ
     } catch (error) {
         console.error("Error sending welcome message:", error);
         res.status(500).json({ error: "Произошла ошибка при отправке приветственного сообщения." });
@@ -244,11 +189,12 @@ app.get('/init', async (req, res) => {
 
 // Ендпоинт для регистрации пользователя
 app.post('/register', async (req, res) => {
-    const { username } = req.body;
-    const remainingPart = req.body.remainingPart;
-    const [email, password, phone] = remainingPart.split(',').map(part => part.trim()); // Разделяем email, password и phone
+    const { username, email, password, phone } = req.body;
     try {
-        const newUser = await dbQueries.createUser(username, email, password, phone);
+        //  Хеширование пароля
+        const saltRounds = 10;
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+        const newUser = await dbQueries.createUser(username, email, passwordHash, phone);
         res.status(201).json({ message: 'Пользователь успешно создан', user: newUser });
     } catch (error) {
         console.error("Ошибка регистрации:", error);
@@ -262,10 +208,9 @@ app.post('/login', async (req, res) => {
     try {
         const user = await dbQueries.getUserByEmail(email);
         if (user) {
-            // Прямое сравнение паролей
-            if (password === user.password) {
-                // Вход выполнен!
-                loggedInUserId = user.user_id;
+            //  Сравниваем пароль с хешем в бд
+            const passwordMatch = await bcrypt.compare(password, user.password_hash);
+            if (passwordMatch) {
                 res.json({ message: 'Вход выполнен!', user: { user_id: user.user_id, username: user.username, email: user.email } });
             } else {
                 res.status(401).json({ message: 'Неверный пароль.' });
@@ -302,10 +247,10 @@ app.get('/masters', async (req, res) => {
 });
 
 // Ендпоинт для создания записи на прием
-app.post('/appointments', requireLogin, async (req, res) => { //  Только после входа
-    const { serviceId, masterId, appointmentDate, appointmentTime } = req.body;
+app.post('/appointments', async (req, res) => {
+    const { userId, serviceId, masterId, appointmentDate, appointmentTime } = req.body;
     try {
-        const newAppointment = await dbQueries.createAppointment(loggedInUserId, serviceId, masterId, appointmentDate, appointmentTime);
+        const newAppointment = await dbQueries.createAppointment(userId, serviceId, masterId, appointmentDate, appointmentTime);
         res.status(201).json({ message: 'Запись успешно создана', appointment: newAppointment });
     } catch (error) {
         console.error("Ошибка при создании записи:", error);
@@ -313,6 +258,9 @@ app.post('/appointments', requireLogin, async (req, res) => { //  Только �
     }
 });
 
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+});
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
