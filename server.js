@@ -50,9 +50,9 @@ function requireAuth(req, res, next) {
 }
 
 // Обработка сообщений от пользователя
-async function handleUserMessage(userId, text, user) { //  Принимаем user
+async function handleUserMessage(text, user) { //  Принимаем user, убираем userId
     console.log(`handleUserMessage called with text: "${text}"`);
-    console.log(`Обработка сообщения "${text}" от пользователя ${userId}`);
+    console.log(`Обработка сообщения "${text}" от пользователя ${user.user_id}`); // используем user.user_id
 
     const lowerCaseText = text.toLowerCase().trim(); // Добавляем trim() для удаления пробелов
     const welcomeMessage = `
@@ -205,63 +205,23 @@ async function handleUserMessage(userId, text, user) { //  Принимаем us
     return botResponse; // Возвращаем ответ бота
 }
 
-//  Функция для отправки сообщения боту
-async function botReply(messageText) {
-    const token = localStorage.getItem('jwtToken');  //  Получаем токен из localStorage
+app.post('/api/message', requireAuth, async (req, res) => { // применяем middleware requireAuth
+    const { text } = req.body; //  Больше не нужен userId, используем req.user
+    //  req.user содержит информацию о пользователе из JWT
+    console.log('Получено сообщение:', text, 'от пользователя:', req.user);
 
+    //  Вызываем функцию обработки сообщения бота, передавая информацию о пользователе
+    const botResponse = await handleUserMessage(text, req.user); // передаем req.user
+    //  Сохраняем сообщение бота
     try {
-        const response = await fetch('/api/message', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` //  Добавляем заголовок Authorization
-            },
-            body: JSON.stringify({ text: messageText, userId: '1' }) // TODO: get real userID
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        displayMessage(data.response, 'bot'); //  Отображаем ответ бота
+        await saveBotMessage(req.user.user_id, botResponse);  
+        console.log("Bot message saved");
     } catch (error) {
-        console.error("Ошибка: Error: Сетевая ошибка при отправке сообщения.", error);
-        displayMessage("Произошла ошибка при отправке сообщения.", 'bot');
+        console.error("Error saving bot message:", error);
     }
-}
-
-//  Функция для входа в систему
-async function login(email, password) {
-    try {
-        const response = await fetch('/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ email: email, password: password })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        console.log("Ответ от сервера (вход):", data);  //  Добавлено
-        console.log("JWT-токен:", data.token);  //  Добавлено
-
-        //  Сохраняем JWT-токен в localStorage
-        localStorage.setItem('jwtToken', data.token);
-        console.log("JWT-токен сохранен в localStorage");  //  Добавлено
-
-        console.log("Вход успешен!", data);
-        //  TODO:  Перенаправить на страницу с ботом или отобразить сообщение об успехе
-    } catch (error) {
-        console.error("Ошибка при входе:", error);
-        //  TODO:  Отобразить сообщение об ошибке
-    }
-}
+    res.setHeader('Content-Type', 'application/json'); 
+    res.json({ response: botResponse });
+});
 
 //  Эндпоинт для проверки подключения к базе данных
 app.get('/test-db', async (req, res) => {
@@ -366,6 +326,9 @@ app.post('/appointments', async (req, res) => {
     }
 });
 
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+});
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
