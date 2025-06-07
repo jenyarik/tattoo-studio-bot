@@ -17,6 +17,7 @@
     "dotenv": "^16.4.5",
     "bcrypt": "^5.1.0",
      "cors": "^2.8.5"
+    "jsonwebtoken": "^9.0.0"
   },
   "devDependencies": {},
   "engines": {
