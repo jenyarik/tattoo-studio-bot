@@ -5,7 +5,7 @@ require('dotenv').config(); // Подключаем .env
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false, // REMOVE IN PRODUCTION
+        rejectUnauthorized: false, 
     },
 });
 
@@ -91,16 +91,14 @@ async function createAppointment(userId, serviceId, masterId, appointmentDate, a
         if (result.rows.length > 0) {
             return result.rows[0];
         } else {
-            return null; // Или бросить ошибку, если нет результатов
+            return null; 
         }
     } catch (err) {
         console.error('Ошибка при создании записи о записи:', err);
-        // Важно:  обработайте ошибку.  Не просто выведите сообщение.
-        // Например, если это ошибка базы данных, верните соответствующий код ошибки
-        if (err.code === '23505') { // пример, если ошибка дублирования
+        if (err.code === '23505') {
             return { error: 'Ошибка: запись с такой датой и временем уже существует' };
         } else if (err.detail) {
-          return { error: err.detail }; //  Если есть более подробная информация об ошибке
+          return { error: err.detail };
         } else {
           return { error: 'Ошибка при создании записи.' };
         }
@@ -112,7 +110,7 @@ async function getMasterByName(masterName) {
     const values = [masterName];
     try {
         const result = await query(queryText, values);
-        return result.rows[0]; // Предполагаем, что имя мастера уникально
+        return result.rows[0]; 
     } catch (err) {
         console.error('Ошибка при получении мастера по имени', err);
         throw err;
@@ -124,7 +122,7 @@ async function getServiceByName(serviceName) {
     const values = [serviceName];
     try {
         const result = await query(queryText, values);
-        return result.rows[0]; //  Предполагаем, что название услуги уникально
+        return result.rows[0];
     } catch (err) {
         console.error('Ошибка при получении услуги по имени', err);
         throw err;
@@ -135,7 +133,7 @@ async function saveBotMessage(userId, messageText) {
     const queryText = `
         INSERT INTO bot_messages (user_id, message)
         VALUES ($1, $2)
-        RETURNING message_id, user_id, message; // Возвращаем только существующие столбцы
+        RETURNING message_id, user_id, message;
     `;
     const values = [userId, messageText];
     try {
