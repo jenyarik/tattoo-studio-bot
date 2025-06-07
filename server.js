@@ -205,24 +205,63 @@ async function handleUserMessage(userId, text, user) { //  Принимаем us
     return botResponse; // Возвращаем ответ бота
 }
 
-app.post('/api/message', requireAuth, async (req, res) => { // применяем middleware requireAuth
-    const { text, userId } = req.body;
+//  Функция для отправки сообщения боту
+async function botReply(messageText) {
+    const token = localStorage.getItem('jwtToken');  //  Получаем токен из localStorage
 
-    //  req.user содержит информацию о пользователе из JWT
-    console.log('Получено сообщение:', text, 'от пользователя:', userId, 'Информация о пользователе:', req.user);
-
-    //  Вызываем функцию обработки сообщения бота, передавая информацию о пользователе
-    const botResponse = await handleUserMessage(userId, text, req.user); // передаем req.user
-    //  Сохраняем сообщение бота
     try {
-        await saveBotMessage(userId, botResponse);  
-        console.log("Bot message saved");
+        const response = await fetch('/api/message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` //  Добавляем заголовок Authorization
+            },
+            body: JSON.stringify({ text: messageText, userId: '1' }) // TODO: get real userID
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        displayMessage(data.response, 'bot'); //  Отображаем ответ бота
     } catch (error) {
-        console.error("Error saving bot message:", error);
+        console.error("Ошибка: Error: Сетевая ошибка при отправке сообщения.", error);
+        displayMessage("Произошла ошибка при отправке сообщения.", 'bot');
     }
-    res.setHeader('Content-Type', 'application/json'); 
-    res.json({ response: botResponse });
-});
+}
+
+//  Функция для входа в систему
+async function login(email, password) {
+    try {
+        const response = await fetch('/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email: email, password: password })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        console.log("Ответ от сервера (вход):", data);  //  Добавлено
+        console.log("JWT-токен:", data.token);  //  Добавлено
+
+        //  Сохраняем JWT-токен в localStorage
+        localStorage.setItem('jwtToken', data.token);
+        console.log("JWT-токен сохранен в localStorage");  //  Добавлено
+
+        console.log("Вход успешен!", data);
+        //  TODO:  Перенаправить на страницу с ботом или отобразить сообщение об успехе
+    } catch (error) {
+        console.error("Ошибка при входе:", error);
+        //  TODO:  Отобразить сообщение об ошибке
+    }
+}
 
 //  Эндпоинт для проверки подключения к базе данных
 app.get('/test-db', async (req, res) => {
