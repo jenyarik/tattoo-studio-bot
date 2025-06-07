@@ -1,11 +1,10 @@
-// db.queries.js
 const { Pool } = require('pg');
 require('dotenv').config(); // Подключаем .env
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false, 
+        rejectUnauthorized: false,
     },
 });
 
@@ -15,7 +14,7 @@ async function query(text, params) {
         return res;
     } catch (err) {
         console.error('Ошибка при выполнении запроса', err);
-        throw err;
+        throw err; // <--- Важно: пробрасываем ошибку
     }
 }
 
@@ -31,7 +30,7 @@ async function createUser(username, email, password, phone) {
         return result.rows[0];
     } catch (err) {
         console.error('Ошибка при создании пользователя', err);
-        throw err;
+        throw err; // <--- Важно: пробрасываем ошибку
     }
 }
 
@@ -47,7 +46,7 @@ async function getUserByEmail(email) {
         return result.rows[0];
     } catch (err) {
         console.error('Ошибка при получении пользователя по email', err);
-        throw err;
+        throw err; // <--- Важно: пробрасываем ошибку
     }
 }
 
@@ -58,7 +57,7 @@ async function getServices() {
         return result.rows;
     } catch (err) {
         console.error('Ошибка при получении списка услуг', err);
-        throw err;
+        throw err; // <--- Важно: пробрасываем ошибку
     }
 }
 
@@ -69,7 +68,7 @@ async function getMasters() {
         return result.rows;
     } catch (err) {
         console.error('Ошибка при получении списка мастеров', err);
-        throw err;
+        throw err;  // <--- Важно: пробрасываем ошибку
     }
 }
 
@@ -91,17 +90,11 @@ async function createAppointment(userId, serviceId, masterId, appointmentDate, a
         if (result.rows.length > 0) {
             return result.rows[0];
         } else {
-            return null; 
+            return null;
         }
     } catch (err) {
         console.error('Ошибка при создании записи о записи:', err);
-        if (err.code === '23505') {
-            return { error: 'Ошибка: запись с такой датой и временем уже существует' };
-        } else if (err.detail) {
-          return { error: err.detail };
-        } else {
-          return { error: 'Ошибка при создании записи.' };
-        }
+        throw err; // <--- Важно: пробрасываем ошибку
     }
 }
 
@@ -110,10 +103,10 @@ async function getMasterByName(masterName) {
     const values = [masterName];
     try {
         const result = await query(queryText, values);
-        return result.rows[0]; 
+        return result.rows[0];
     } catch (err) {
         console.error('Ошибка при получении мастера по имени', err);
-        throw err;
+        throw err; // <--- Важно: пробрасываем ошибку
     }
 }
 
@@ -125,7 +118,7 @@ async function getServiceByName(serviceName) {
         return result.rows[0];
     } catch (err) {
         console.error('Ошибка при получении услуги по имени', err);
-        throw err;
+        throw err; // <--- Важно: пробрасываем ошибку
     }
 }
 
@@ -141,7 +134,7 @@ async function saveBotMessage(userId, messageText) {
         return res.rows[0];
     } catch (err) {
         console.error("Error saving bot message:", err);
-        throw err;
+        throw err; // <--- Важно: пробрасываем ошибку
     }
 }
 
