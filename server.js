@@ -200,31 +200,19 @@ async function handleUserMessage(text, userId) {
 }
 
 app.post('/api/message', async (req, res) => {
-    const { text } = req.body;
-    const userId = loggedInUserId;  //  Берем ID из переменной loggedInUserId
-
+    const { text, userId } = req.body; // Передайте userId в теле, если есть
+    // Или, если userId не передается, используйте глобальную переменную — что не очень безопасно
     if (!userId) {
         return res.status(401).json({ message: 'Требуется войти в систему, чтобы отправлять сообщения.' });
     }
-
     console.log('Получено сообщение:', text, 'от пользователя:', userId);
-
     try {
         const botResponse = await handleUserMessage(text, userId);
-
-        try {
-            await saveBotMessage(userId, botResponse);
-            console.log("Bot message saved");
-        } catch (error) {
-            console.error("Error saving bot message:", error);
-        }
-
-        res.setHeader('Content-Type', 'application/json');
+        await saveBotMessage(userId, botResponse);
         res.json({ response: botResponse });
-
     } catch (error) {
         console.error("Ошибка при обработке сообщения:", error);
-        res.status(500).json({ message: "Произошла ошибка при обработке сообщения.", error: error.message });
+        res.status(500).json({ message: "Произошла ошибка при обработке сообщения." });
     }
 });
 
