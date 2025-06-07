@@ -59,21 +59,35 @@ async function handleUserMessage(userId, text) {
                 return "К сожалению, список услуг пуст.";
             }
         } else if (lowerCaseText.startsWith('записаться')) {
-            const parts = lowerCaseText.split(' ');
-            if (parts.length < 5) {
-                return "Неверный формат команды 'записаться'. Используйте: записаться [дата] [время] [мастер] [услуга]";
-            }
-            const [_, date, time, masterName, serviceName] = parts;
+  
+    const commandBody = lowerCaseText.slice('записаться'.length).trim();
+    // Разделяем по запятым
+    const parts = commandBody.split(',').map(part => part.trim());
 
-            const master = await dbQueries.getMasterByName(masterName);
-            const service = await dbQueries.getServiceByName(serviceName);
+    if (parts.length < 3) {
+        return "Неверный формат команды. Используйте: записаться [дата] [время], [имя мастера], [услуга]";
+    }
 
-            if (!master || !service) {
-                return "Не удалось найти мастера или услугу.";
-            }
+    const [dateTimeStr, masterName, serviceName] = parts;
 
-            const appointment = await dbQueries.createAppointment(userId, service.service_id, master.master_id, date, time);
-            return `Вы записаны к мастеру ${master.name} на ${date} в ${time}.`;
+    // Разделяем дату и время
+    const dateTimeParts = dateTimeStr.split(' ');
+    if (dateTimeParts.length < 2) {
+        return "Пожалуйста, укажите дату и время в формате: ГГГГ-ММ-ДД ЧЧ:ММ";
+    }
+    const [date, time] = dateTimeParts;
+
+    // Теперь ищем мастера и услугу
+    const master = await dbQueries.getMasterByName(masterName);
+    const service = await dbQueries.getServiceByName(serviceName);
+
+    if (!master || !service) {
+        return "Не удалось найти мастера или услугу.";
+    }
+
+    const appointment = await dbQueries.createAppointment(userId, service.service_id, master.master_id, date, time);
+    return `Вы записаны к мастеру ${master.name} на ${date} в ${time}.`;
+}
 
         } else if (lowerCaseText.startsWith('зарегистрироваться')) {
             const parts = text.split(' ');
