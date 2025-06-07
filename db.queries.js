@@ -133,8 +133,8 @@ async function saveBotMessage(userId, messageText) {
     const queryText = `
         INSERT INTO bot_messages (user_id, message)
         VALUES ($1, $2)
-        RETURNING message_id, user_id, message;
-    `;
+        RETURNING message_id, user_id, message
+    `
     const values = [userId, messageText];
     try {
         const res = await query(queryText, values);
