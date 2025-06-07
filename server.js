@@ -3,6 +3,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const dbQueries = require('./db.queries.js');
 const cors = require('cors');
+const jwt = require('jsonwebtoken'); //  Подключаем jsonwebtoken
 const { getMasters, getServices, createAppointment, getMasterByName, getServiceByName, saveBotMessage } = require('./db.queries.js');
 
 const app = express();
@@ -18,7 +19,38 @@ const port = process.env.PORT || 3000;
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-async function handleUserMessage(userId, text) {
+// Middleware для проверки авторизации
+function requireAuth(req, res, next) {
+    // Проверяем наличие JWT-токена в заголовке Authorization
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+        return res.status(401).json({ message: 'Требуется авторизация. Отсутствует заголовок Authorization.' });
+    }
+
+    const token = authHeader.split(' ')[1]; // Bearer <token>
+
+    if (!token) {
+        return res.status(401).json({ message: 'Требуется авторизация. Отсутствует JWT токен' });
+    }
+
+    try {
+        // Верифицируем JWT-токен
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // Добавляем информацию о пользователе в объект запроса
+        req.user = decoded;  //  В req.user теперь информация о пользователе (например, user_id)
+
+        // Передаем управление следующему middleware или обработчику маршрута
+        next();
+    } catch (error) {
+        console.error("Ошибка верификации JWT:", error);
+        return res.status(401).json({ message: 'Неверный JWT-токен' });
+    }
+}
+
+// Обработка сообщений от пользователя
+async function handleUserMessage(userId, text, user) { //  Принимаем user
     console.log(`handleUserMessage called with text: "${text}"`);
     console.log(`Обработка сообщения "${text}" от пользователя ${userId}`);
 
@@ -63,78 +95,47 @@ async function handleUserMessage(userId, text) {
     }
 
    if (lowerCaseText.startsWith('записаться')) {
-    console.log("Начало обработки команды 'записаться'");  //  Добавляем логи
+        const commandBody = lowerCaseText.slice('записаться'.length).trim();
+        // Разделяем по запятым
+        const parts = commandBody.split(',').map(part => part.trim());
 
-    const commandBody = lowerCaseText.slice('записаться'.length).trim();
-    // Разделяем по запятым
-    const parts = commandBody.split(',').map(part => part.trim());
+        if (parts.length < 3) {
+            botResponse = "Неверный формат команды. Используйте: записаться [дата] [время], [имя мастера], [услуга]";
+        } else {
 
-    if (parts.length < 3) {
-        console.log("Неверный формат команды.");  //  Добавляем логи
-        return "Неверный формат команды. Используйте: записаться [дата] [время], [имя мастера], [услуга]";
+          const [dateTimeStr, masterName, serviceName] = parts;
+
+          // Разделяем дату и время
+          const dateTimeParts = dateTimeStr.split(' ');
+          if (dateTimeParts.length < 2) {
+              botResponse = "Пожалуйста, укажите дату и время в формате: ГГГГ-ММ-ДД ЧЧ:ММ";
+          } else {
+              const [date, time] = dateTimeParts;
+
+              // Теперь ищем мастера и услугу
+              try {
+                  const master = await dbQueries.getMasterByName(masterName);
+                  const service = await dbQueries.getServiceByName(serviceName);
+
+                  if (!master || !service) {
+                      botResponse = "Не удалось найти мастера или услугу.";
+                  } else {
+                      // Используем user.user_id из JWT
+                      const appointment = await dbQueries.createAppointment(user.user_id, service.service_id, master.master_id, date, time);
+                      if (appointment) {
+                          botResponse = `Вы записаны к мастеру ${master.name} на ${date} в ${time}.`;
+                      } else {
+                          botResponse = "Не удалось создать запись.";
+                      }
+                  }
+              } catch (error) {
+                  console.error("Ошибка при обработке записи:", error);
+                  botResponse = "Произошла ошибка при записи. Попробуйте позже.";
+              }
+          }
+        }
+
     }
-
-    const [dateTimeStr, masterName, serviceName] = parts;
-
-    // Разделяем дату и время
-    const dateTimeParts = dateTimeStr.split(' ');
-    if (dateTimeParts.length < 2) {
-        console.log("Неверный формат даты и времени.");  //  Добавляем логи
-        return "Пожалуйста, укажите дату и время в формате: ГГГГ-ММ-ДД ЧЧ:ММ";
-    }
-    const [date, time] = dateTimeParts;
-    console.log(`Дата (date): ${date}, Время (time): ${time}, Мастер (masterName): ${masterName}, Услуга (serviceName): ${serviceName}`); //  Добавляем логи
-
-    // Теперь ищем мастера и услугу
-    let master = null;
-    let service = null;
-    try {
-        console.log(`Поиск мастера с именем: "${masterName}"`); //  Добавляем логи
-        master = await dbQueries.getMasterByName(masterName);
-        console.log(`Результат поиска мастера: ${JSON.stringify(master)}`); //  Добавляем логи
-        console.log(`Поиск услуги с именем: "${serviceName}"`); //  Добавляем логи
-        service = await dbQueries.getServiceByName(serviceName);
-        console.log(`Результат поиска услуги: ${JSON.stringify(service)}`); //  Добавляем логи
-    } catch (error) {
-        console.error("Ошибка при получении мастера или услуги:", error); //  Добавляем логи
-        return "Произошла ошибка при получении мастера или услуги.";
-    }
-
-    if (!master) {
-        console.log("Мастер не найден.");  //  Добавляем логи
-        return "Не удалось найти мастера.";
-    }
-
-    if (!service) {
-        console.log("Услуга не найдена.");  //  Добавляем логи
-        return "Не удалось найти услугу.";
-    }
-
-     console.log(`Мастер (master): ${JSON.stringify(master)}, Услуга (service): ${JSON.stringify(service)}`); //  Добавляем логи
-
-    let appointment = null;
-    try {
-        console.log(`Создание записи: userId=${userId}, serviceId=${service.service_id}, masterId=${master.master_id}, date=${date}, time=${time}`);  //  Добавляем логи
-        appointment = await dbQueries.createAppointment(userId, service.service_id, master.master_id, date, time);
-        console.log(`Результат создания записи: ${JSON.stringify(appointment)}`);  //  Добавляем логи
-    } catch (error) {
-        console.error("Ошибка при создании записи:", error); //  Добавляем логи
-        return "Произошла ошибка при создании записи. Попробуйте позже.";
-    }
-
-    if (!appointment) {
-        console.log("Запись не создана.");  //  Добавляем логи
-        return "Не удалось создать запись. Пожалуйста, попробуйте позже.";
-    }
-
-    if (appointment.error) {
-        console.log(`Ошибка при создании записи: ${appointment.error}`);  //  Добавляем логи
-        return appointment.error; //  Обрабатываем случаи с ошибкой
-    }
-
-    console.log("Запись успешно создана.");  //  Добавляем логи
-    return `Вы записаны к мастеру ${master.name} на ${date} в ${time}.`;
-}
 
     if (lowerCaseText.startsWith('зарегистрироваться')) {
        const commandBody = text.slice('зарегистрироваться'.length).trim();
@@ -203,12 +204,15 @@ async function handleUserMessage(userId, text) {
 
     return botResponse; // Возвращаем ответ бота
 }
-app.post('/api/message', async (req, res) => {
+
+app.post('/api/message', requireAuth, async (req, res) => { // применяем middleware requireAuth
     const { text, userId } = req.body;
-    // Обработка сообщения пользователя
-    console.log('Получено сообщение:', text, 'от пользователя:', userId);
-    //  Вызываем функцию обработки сообщения бота
-    const botResponse = await handleUserMessage(userId, text);
+
+    //  req.user содержит информацию о пользователе из JWT
+    console.log('Получено сообщение:', text, 'от пользователя:', userId, 'Информация о пользователе:', req.user);
+
+    //  Вызываем функцию обработки сообщения бота, передавая информацию о пользователе
+    const botResponse = await handleUserMessage(userId, text, req.user); // передаем req.user
     //  Сохраняем сообщение бота
     try {
         await saveBotMessage(userId, botResponse);  
@@ -273,7 +277,10 @@ app.post('/login', async (req, res) => {
             // Прямое сравнение паролей 
             if (password === user.password) {
                 // Вход выполнен!
-                res.json({ message: 'Вход выполнен!', user: { user_id: user.user_id, username: user.username, email: user.email } });
+                //  Создаем JWT токен
+                const token = jwt.sign({ user_id: user.user_id, username: user.username, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+                res.json({ message: 'Вход выполнен!', token: token, user: { user_id: user.user_id, username: user.username, email: user.email } });
             } else {
                 res.status(401).json({ message: 'Неверный пароль.' });
             }
