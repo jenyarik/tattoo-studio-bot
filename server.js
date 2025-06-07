@@ -86,17 +86,27 @@ async function handleUserMessage(userId, text) {
         const appointment = await dbQueries.createAppointment(userId, service.service_id, master.master_id, date, time);
         return `Вы записаны к мастеру ${master.name} на ${date} в ${time}.`;
     } else if (lowerCaseText.startsWith('зарегистрироваться')) {
-        const parts = text.split(' ');
-        if (parts.length < 5) {
-            return "Неверный формат команды зарегистрироваться. Используйте: зарегистрироваться [имя пользователя] [email] [пароль] [телефон]";
+        
+        const commandBody = text.slice('зарегистрироваться'.length).trim();
+        const parts = commandBody.split(',');
+
+        if (parts.length !== 2) {
+          return "Неверный формат команды зарегистрироваться. Используйте: зарегистрироваться [имя пользователя], [email пароль телефон]";
         }
-        const [_, username, email, password, phone] = parts;
+
+        const username = parts[0].trim();
+        const remainingPart = parts[1].trim();
+        const [email, password, phone] = remainingPart.split(' ');
+
+        if (!email || !password || !phone) {
+          return "Неверный формат команды зарегистрироваться.  [email] [пароль] [телефон] должны быть разделены пробелами.";
+        }
+
+
         try {
             // Вызываем функцию createUser из db.queries
-            const newUser = await dbQueries.createUser(username, email, password, phone); // Передаем пароль в открытом виде
+            const newUser = await dbQueries.createUser(username, email, password, phone);
             console.log("New user created:", newUser);
-             // Разделяем по запятым
-        const parts = commandBody.split(',').map(part => part.trim());
             return "Регистрация успешна!";
         } catch (error) {
             console.error("Error registering user:", error);
