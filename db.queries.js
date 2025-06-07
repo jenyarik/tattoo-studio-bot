@@ -1,10 +1,11 @@
+// db.queries.js
 const { Pool } = require('pg');
 require('dotenv').config(); // Подключаем .env
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false,
+        rejectUnauthorized: false, // REMOVE IN PRODUCTION
     },
 });
 
@@ -14,29 +15,29 @@ async function query(text, params) {
         return res;
     } catch (err) {
         console.error('Ошибка при выполнении запроса', err);
-        throw err; // <--- Важно: пробрасываем ошибку
+        throw err;
     }
 }
 
-async function createUser(username, email, password, phone) {
+async function createUser(username, email, passwordHash, phone) {
     const queryText = `
-        INSERT INTO users (username, email, password, phone)
+        INSERT INTO users (username, email, password_hash, phone)
         VALUES ($1, $2, $3, $4)
         RETURNING user_id, username, email, phone, registration_date
     `;
-    const values = [username, email, password, phone];
+    const values = [username, email, passwordHash, phone];
     try {
         const result = await query(queryText, values);
         return result.rows[0];
     } catch (err) {
         console.error('Ошибка при создании пользователя', err);
-        throw err; // <--- Важно: пробрасываем ошибку
+        throw err;
     }
 }
 
 async function getUserByEmail(email) {
     const queryText = `
-        SELECT user_id, username, email, password, phone
+        SELECT user_id, username, email, password_hash, phone
         FROM users
         WHERE email = $1
     `;
@@ -46,7 +47,7 @@ async function getUserByEmail(email) {
         return result.rows[0];
     } catch (err) {
         console.error('Ошибка при получении пользователя по email', err);
-        throw err; // <--- Важно: пробрасываем ошибку
+        throw err;
     }
 }
 
@@ -57,7 +58,7 @@ async function getServices() {
         return result.rows;
     } catch (err) {
         console.error('Ошибка при получении списка услуг', err);
-        throw err; // <--- Важно: пробрасываем ошибку
+        throw err;
     }
 }
 
@@ -68,33 +69,29 @@ async function getMasters() {
         return result.rows;
     } catch (err) {
         console.error('Ошибка при получении списка мастеров', err);
-        throw err;  // <--- Важно: пробрасываем ошибку
+        throw err;
     }
 }
 
 async function createAppointment(userId, serviceId, masterId, appointmentDate, appointmentTime) {
     const queryText = `
-        INSERT INTO appointments (user_id, service_id, master_id, appointment_date, appointment_time)
-        VALUES (
-            $1,
-            $2,
-            $3,
-            $4,
-            $5
-        )
-        RETURNING appointment_id, user_id, service_id, master_id, appointment_date, appointment_time;
+INSERT INTO appointments (user_id, service_id, master_id, appointment_date, appointment_time)
+VALUES (
+    $1,
+    $2,
+    (SELECT master_id FROM masters WHERE master_name = $3),
+    $4,
+    $5
+)
+RETURNING appointment_id, user_id, service_id, master_id, appointment_date, appointment_time;
     `;
     const values = [userId, serviceId, masterId, appointmentDate, appointmentTime];
     try {
         const result = await query(queryText, values);
-        if (result.rows.length > 0) {
-            return result.rows[0];
-        } else {
-            return null;
-        }
+        return result.rows[0];
     } catch (err) {
-        console.error('Ошибка при создании записи о записи:', err);
-        throw err; // <--- Важно: пробрасываем ошибку
+        console.error('Ошибка при создании записи на прием', err);
+        throw err;
     }
 }
 
@@ -103,10 +100,10 @@ async function getMasterByName(masterName) {
     const values = [masterName];
     try {
         const result = await query(queryText, values);
-        return result.rows[0];
+        return result.rows[0]; // Предполагаем, что имя мастера уникально
     } catch (err) {
         console.error('Ошибка при получении мастера по имени', err);
-        throw err; // <--- Важно: пробрасываем ошибку
+        throw err;
     }
 }
 
@@ -115,26 +112,26 @@ async function getServiceByName(serviceName) {
     const values = [serviceName];
     try {
         const result = await query(queryText, values);
-        return result.rows[0];
+        return result.rows[0]; //  Предполагаем, что название услуги уникально
     } catch (err) {
         console.error('Ошибка при получении услуги по имени', err);
-        throw err; // <--- Важно: пробрасываем ошибку
+        throw err;
     }
 }
 
 async function saveBotMessage(userId, messageText) {
     const queryText = `
-        INSERT INTO bot_messages (user_id, message)
-        VALUES ($1, $2)
-        RETURNING message_id, user_id, message
-    `
-    const values = [userId, messageText];
+        INSERT INTO bot_messages (user_id, message, response)
+        VALUES ($1, $2, $3)                                   
+        RETURNING message_id, created_at
+    `;
+    const values = [userId, '', messageText];  // Изменено: '', messageText
     try {
-        const res = await query(queryText, values);
-        return res.rows[0];
+        const result = await query(queryText, values);
+        return result.rows[0]; // Возвращаем ID созданного сообщения
     } catch (err) {
-        console.error("Error saving bot message:", err);
-        throw err; // <--- Важно: пробрасываем ошибку
+        console.error('Ошибка при сохранении сообщения бота', err);
+        throw err;
     }
 }
 
