@@ -5,7 +5,8 @@ require('dotenv').config(); // Подключаем .env
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false, // REMOVE IN PRODUCTION
+        require: true, // Требуем SSL
+        rejectUnauthorized: true, // Проверяем сертификат (рекомендуется)
     },
 });
 
