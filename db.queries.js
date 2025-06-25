@@ -1,13 +1,18 @@
 // db.queries.js
-const { Pool } = require('pg');
-require('dotenv').config(); // Подключаем .env
+const pool = require('./db'); // импортируем один экземпляр pool
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false, // REMOVE IN PRODUCTION
-    },
-});
+// пример функции-запроса
+async function query(text, params) {
+  try {
+    const res = await pool.query(text, params);
+    return res;
+  } catch (err) {
+    console.error('Ошибка при выполнении запроса:', err);
+    throw err;
+  }
+}
+
+module.exports = { query };
 
 async function query(text, params) {
     try {
