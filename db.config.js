@@ -1,13 +1,8 @@
-const pool = require('./db'); // импортируем один экземпляр pool
-
+// db.config.js
 module.exports = {
-  query: async (text, params) => {
-    const client = await pool.connect();
-    try {
-      const result = await client.query(text, params);
-      return result.rows;
-    } finally {
-      client.release();
-    }
-  }
+  user: 'postgres',             // замените на ваш пользователь
+  host: 'localhost',
+  database: 'suvorov_studio',   // название вашей базы
+  password: '12345',       // ваш пароль
+  port: 5432,
 };
