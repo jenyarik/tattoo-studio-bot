@@ -5,7 +5,6 @@ const bodyParser = require('body-parser');
 const dbQueries = require('./db.queries.js'); //  Импортируем db.queries.js
 const cors = require('cors');
 const bcrypt = require('bcrypt');
-const { getMasters, getServices, createAppointment, getMasterByName, getServiceByName, saveBotMessage } = require('./db.queries.js');
 
 const app = express();
 // Настройка CORS
@@ -20,20 +19,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 //  Обработка сообщений от пользователя
 async function handleUserMessage(userId, text) {
-    console.log(`handleUserMessage called with text: "${text}"`); //  Добавь эту строку
     console.log(`Обработка сообщения "${text}" от пользователя ${userId}`);
 
- const lowerCaseText = text.toLowerCase().trim(); // Добавляем trim() для удаления пробелов
-    const welcomeMessage = `
-        👋 Приветствую! Я Чат-бот "Студии Суворова".\n
-        Я могу помочь тебе с:\n
-        - Регистрацией:  зарегистрироваться [имя пользователя] [email] [пароль] [телефон]\n
-        - Входом в систему: войти [email] [пароль]\n
-        - Просмотром списка мастеров: мастера\n
-        - Просмотром списка услуг: услуги\n
-        - Записью на прием: записаться [дата] [время] [мастер] [услуга]\n
-        \n
-        Чтобы начать, просто введи нужную команду!`;
+    const lowerCaseText = text.toLowerCase();
 
     try {
         if (lowerCaseText === 'мастера') {
@@ -78,60 +66,9 @@ async function handleUserMessage(userId, text) {
             const appointment = await dbQueries.createAppointment(userId, service.service_id, master.master_id, date, time); //  Добавь эту функцию в dbQueries
             return `Вы записаны к мастеру ${master.name} на ${date} в ${time}.`;
 
-        } else if (lowerCaseText.startsWith('зарегистрироваться')) { // Обработка команды /register
-            const parts = text.split(' ');
-            if (parts.length < 5) {
-                return "Неверный формат команды зарегистрироваться. Используйте: зарегистрироваться [имя пользователя] [email] [пароль] [телефон]";
-            }
-            const [_, username, email, password, phone] = parts;
-            try {
-                // Хеширование пароля
-                const saltRounds = 10;
-                const passwordHash = await bcrypt.hash(password, saltRounds);
-                // Вызываем функцию createUser из db.queries
-                const newUser = await dbQueries.createUser(username, email, passwordHash, phone);
-                console.log("New user created:", newUser);
-                return "Регистрация успешна!"; // Ответ пользователю
-            } catch (error) {
-                console.error("Error registering user:", error);
-                // Обрабатываем ошибки, например, если email уже существует
-                if (error.constraint === 'users_email_key') { // Пример обработки ошибки уникальности email
-                    return "Пользователь с таким email уже существует.";
-                }
-                return "Произошла ошибка при регистрации.";
-            }
-        } else if (lowerCaseText.startsWith('войти')) { // Обработка команды /login
-            console.log("Processing 'войти' command");
-            const parts = text.split(' ');
-            if (parts.length < 3) {
-                return "Неверный формат команды войти. Используйте: войти [email] [пароль]";
-            }
-            const [_, email, password] = parts;
-
-            try {
-                const user = await dbQueries.getUserByEmail(email);
-                if (!user) {
-                    return "Пользователь с таким email не найден.";
-                }
-
-                const passwordMatch = await bcrypt.compare(password, user.password_hash);
-                if (!passwordMatch) {
-                    return "Неверный пароль.";
-                }
-
-                //  Успешный вход.  (Здесь ты можешь реализовать сессии или JWT)
-                console.log("Login successful:", user);
-                return "Вход выполнен!"; //  Сообщение об успешном входе
-
-            } catch (error) {
-                console.error("Error logging in:", error);
-                return "Произошла ошибка при входе.";
-            }
-        }
-        else {
+        } else {
             return `Вы сказали: ${text}`; //  Ответ по умолчанию
         }
-
     } catch (error) {
         console.error("Ошибка при обработке команды:", error);
         return "Произошла ошибка при обработке вашей команды.";
@@ -144,13 +81,6 @@ app.post('/api/message', async (req, res) => {
     console.log('Получено сообщение:', text, 'от пользователя:', userId);
     //  Вызываем функцию обработки сообщения бота
     const botResponse = await handleUserMessage(userId, text);
-    //  Сохраняем сообщение бота
-    try {
-        await saveBotMessage(userId, botResponse);  //  <-- Добавь это
-        console.log("Bot message saved");
-    } catch (error) {
-        console.error("Error saving bot message:", error);
-    }
     res.setHeader('Content-Type', 'application/json');  //  <--- Добавлено
     res.json({ response: botResponse });
 });
@@ -163,28 +93,6 @@ app.get('/test-db', async (req, res) => {
     } catch (error) {
         console.error("Ошибка подключения к БД:", error);
         res.status(500).json({ message: 'Ошибка подключения к БД', error: error.message });
-    }
-});
-
-//  Добавим отправку приветственного сообщения при загрузке страницы
-app.get('/init', async (req, res) => { //  Новый эндпоинт - `/init`
-    const userId = '123'; // Замените на реальный userId, если это необходимо
-    const welcomeMessage = `
-        👋 Приветствую! Я Чат-бот "Студия Суворова".\n
-        Я могу помочь тебе с:\n
-        - Регистрацией:  /register username email password phone\n
-        - Входом в систему: /login email password\n
-        - Просмотром списка мастеров: мастера\n
-        - Просмотром списка услуг: услуги\n
-        - Записью на прием: записаться [дата] [время] [мастер] [услуга]\n
-        \n
-        Чтобы начать, просто введи нужную команду!
-    `;
-    try {
-        res.json({ response: welcomeMessage }); // Отправляем приветственное сообщение в ответ
-    } catch (error) {
-        console.error("Error sending welcome message:", error);
-        res.status(500).json({ error: "Произошла ошибка при отправке приветственного сообщения." });
     }
 });
 
