@@ -1,9 +1,12 @@
 // db.queries.js
 const { Pool } = require('pg');
-require('dotenv').config();
+require('dotenv').config(); // Подключаем .env
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false, // REMOVE IN PRODUCTION
+    },
 });
 
 async function query(text, params) {
