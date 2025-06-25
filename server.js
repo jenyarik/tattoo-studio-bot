@@ -8,6 +8,17 @@ const { getMasters, getServices, createAppointment, getMasterByName, getServiceB
 
 const app = express();
 
+const pool = require('./db'); // убедитесь, что импортируете правильно
+
+app.get('/test-db', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW()');
+    res.json({ success: true, time: result.rows[0].now });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
 // Настройка CORS
 const corsOptions = {
     origin: 'https://suvorov-studio.onrender.com',
